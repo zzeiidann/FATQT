@@ -100,6 +100,104 @@ async def get_realtime_quote(ticker: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/indicators/stochrsi")
+async def calculate_stoch_rsi(request: HistoricalRequest):
+    """Calculate Stochastic RSI indicator"""
+    try:
+        # Get historical data first
+        data = download_fast(
+            request.ticker,
+            request.start_date,
+            request.end_date,
+            interval=request.interval
+        )
+        
+        if data is None or len(data) == 0:
+            raise HTTPException(status_code=404, detail="No data found")
+        
+        # Normalize columns if MultiIndex
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = [c[0] if isinstance(c, (list, tuple)) and len(c) > 0 else c for c in data.columns]
+        
+        # Ensure we have Close prices
+        if 'Close' not in data.columns:
+            raise HTTPException(status_code=400, detail="No Close prices available")
+        
+        # Calculate Stochastic RSI
+        def calculate_rsi(prices, period=14):
+            """Calculate RSI"""
+            deltas = prices.diff()
+            gains = deltas.where(deltas > 0, 0)
+            losses = -deltas.where(deltas < 0, 0)
+            
+            avg_gains = gains.rolling(window=period, min_periods=period).mean()
+            avg_losses = losses.rolling(window=period, min_periods=period).mean()
+            
+            rs = avg_gains / avg_losses
+            rsi = 100 - (100 / (1 + rs))
+            return rsi
+        
+        def calculate_stoch_rsi(prices, rsi_period=14, stoch_period=14, k_period=3, d_period=3):
+            """Calculate Stochastic RSI"""
+            # Calculate RSI
+            rsi = calculate_rsi(prices, rsi_period)
+            
+            # Calculate Stochastic of RSI
+            rsi_min = rsi.rolling(window=stoch_period, min_periods=stoch_period).min()
+            rsi_max = rsi.rolling(window=stoch_period, min_periods=stoch_period).max()
+            
+            stoch_rsi = ((rsi - rsi_min) / (rsi_max - rsi_min)) * 100
+            stoch_rsi = stoch_rsi.fillna(50)  # Fill NaN with neutral value
+            
+            # Smooth K line
+            k_line = stoch_rsi.rolling(window=k_period, min_periods=k_period).mean()
+            
+            # Calculate D line (SMA of K)
+            d_line = k_line.rolling(window=d_period, min_periods=d_period).mean()
+            
+            return k_line, d_line
+        
+        # Calculate Stoch RSI
+        k_line, d_line = calculate_stoch_rsi(data['Close'])
+        
+        # Prepare response data
+        if 'Date' not in data.columns and data.index is not None:
+            data = data.reset_index()
+        
+        if 'Date' in data.columns:
+            dates = data['Date'].astype(str).tolist()
+        else:
+            dates = list(range(len(data)))
+        
+        # Filter out NaN values
+        result_data = []
+        for i, (date, k, d) in enumerate(zip(dates, k_line, d_line)):
+            if pd.notna(k) and pd.notna(d):
+                result_data.append({
+                    "date": date,
+                    "k": float(k),
+                    "d": float(d)
+                })
+        
+        return {
+            "ticker": request.ticker,
+            "start_date": request.start_date,
+            "end_date": request.end_date,
+            "interval": request.interval,
+            "indicator": "stochastic_rsi",
+            "parameters": {
+                "rsi_period": 14,
+                "stoch_period": 14,
+                "k_period": 3,
+                "d_period": 3
+            },
+            "data": result_data
+        }
+    except Exception as e:
+        import traceback
+        print(f"Error in stoch RSI endpoint: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/historical")
 async def get_historical_data(request: HistoricalRequest):
     """Get historical price data"""
@@ -170,12 +268,26 @@ async def get_comprehensive_analysis(
             raise HTTPException(status_code=404, detail="No data found for analysis")
         
         # Perform all analyses
-        seasonal = SeasonalAnalysis(data)
-        patterns = PatternAnalysis(data)
-        volatility = VolatilityAnalysis(data)
+        try:
+            seasonal = SeasonalAnalysis(data)
+            seasonal_data = seasonal.get_all_seasonal_analysis()
+        except Exception as e:
+            print(f"Seasonal analysis error: {e}")
+            seasonal_data = {"error": str(e)}
         
-        # Note: Intraday analysis requires intraday data
-        # For daily data, we skip intraday analysis
+        try:
+            patterns = PatternAnalysis(data)
+            pattern_data = patterns.get_all_pattern_analysis()
+        except Exception as e:
+            print(f"Pattern analysis error: {e}")
+            pattern_data = {"error": str(e)}
+        
+        try:
+            volatility = VolatilityAnalysis(data)
+            volatility_data = volatility.get_all_volatility_analysis()
+        except Exception as e:
+            print(f"Volatility analysis error: {e}")
+            volatility_data = {"error": str(e)}
         
         result = {
             "ticker": ticker,
@@ -184,9 +296,9 @@ async def get_comprehensive_analysis(
                 "end": end_date,
                 "days": len(data)
             },
-            "seasonal_analysis": seasonal.get_all_seasonal_analysis(),
-            "pattern_analysis": patterns.get_all_pattern_analysis(),
-            "volatility_analysis": volatility.get_all_volatility_analysis(),
+            "seasonal": seasonal_data,
+            "patterns": pattern_data,
+            "volatility": volatility_data,
             "generated_at": datetime.now().isoformat()
         }
         
@@ -198,34 +310,21 @@ async def get_comprehensive_analysis(
 @app.get("/api/tickers")
 async def get_ticker_list():
     """Get list of available tickers"""
-    # IDX major stocks
+    # IDX major stocks - expanded list
     idx_tickers = [
-        {"symbol": "^JKSE", "name": "IDX Composite (IHSG)", "category": "Index"},
-        {"symbol": "BBCA.JK", "name": "Bank Central Asia", "category": "Banking"},
-        {"symbol": "BMRI.JK", "name": "Bank Mandiri", "category": "Banking"},
-        {"symbol": "BBRI.JK", "name": "Bank Rakyat Indonesia", "category": "Banking"},
-        {"symbol": "BBNI.JK", "name": "Bank Negara Indonesia", "category": "Banking"},
-        {"symbol": "TLKM.JK", "name": "Telkom Indonesia", "category": "Telecommunications"},
-        {"symbol": "ASII.JK", "name": "Astra International", "category": "Automotive"},
-        {"symbol": "UNVR.JK", "name": "Unilever Indonesia", "category": "Consumer Goods"},
-        {"symbol": "ICBP.JK", "name": "Indofood CBP", "category": "Consumer Goods"},
-        {"symbol": "INDF.JK", "name": "Indofood Sukses Makmur", "category": "Consumer Goods"},
-        {"symbol": "KLBF.JK", "name": "Kalbe Farma", "category": "Healthcare"},
-        {"symbol": "GGRM.JK", "name": "Gudang Garam", "category": "Consumer Goods"},
-        {"symbol": "ADRO.JK", "name": "Adaro Energy", "category": "Energy"},
-        {"symbol": "PTBA.JK", "name": "Bukit Asam", "category": "Energy"},
-        {"symbol": "INCO.JK", "name": "Vale Indonesia", "category": "Mining"},
-        {"symbol": "ANTM.JK", "name": "Aneka Tambang", "category": "Mining"},
-        {"symbol": "SMGR.JK", "name": "Semen Indonesia", "category": "Construction"},
-        {"symbol": "WIKA.JK", "name": "Wijaya Karya", "category": "Construction"},
-        {"symbol": "PGAS.JK", "name": "Perusahaan Gas Negara", "category": "Energy"},
-        {"symbol": "BSDE.JK", "name": "Bumi Serpong Damai", "category": "Property"},
-        {"symbol": "BUVA.JK", "name": "Bukalapak", "category": "Technology"},
-        {"symbol": "GOTO.JK", "name": "GoTo Gojek Tokopedia", "category": "Technology"},
-        {"symbol": "EMTK.JK", "name": "Elang Mahkota Teknologi", "category": "Media"},
-        {"symbol": "MEDC.JK", "name": "Medco Energi", "category": "Energy"},
-        {"symbol": "EXCL.JK", "name": "XL Axiata", "category": "Telecommunications"},
+        {"symbol": "^JKSE", "name": "Jakarta Composite Index", "category": "Index"},
+        {"symbol": "^JKLQ45", "name": "LQ45 Index", "category": "Index"},
+        
     ]
+    
+    idx_composite = pd.read_csv('idx_composite_list.csv')
+
+    for _, row in idx_composite.iterrows():
+        idx_tickers.append({
+            "symbol": row['symbol'],
+            "name": row['name'],
+            "category": row['category']
+        })
     
     return {
         "total": len(idx_tickers),
