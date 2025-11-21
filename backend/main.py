@@ -56,7 +56,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-
 # Request/Response Models
 class TickerRequest(BaseModel):
     ticker: str
@@ -72,6 +71,30 @@ class AnalysisRequest(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 
+
+def format_datetime_column(df: pd.DataFrame, column: str = 'Date', ticker: str = '') -> pd.DataFrame:
+    """Normalize datetime column to ISO strings, with exchange-local timezone.
+
+    - Untuk ticker IDX (.JK, ^JKSE, dll) -> Asia/Jakarta (UTC+7)
+    - Untuk ticker lain -> biarkan di tz aslinya (hanya drop tz info)
+    """
+    if column not in df.columns:
+        return df
+
+    dates = pd.to_datetime(df[column], errors='coerce')
+
+    if getattr(dates.dt, 'tz', None) is not None:
+        is_idx = ticker.endswith('.JK') or ticker.startswith('^JK')
+        if is_idx:
+            # dari UTC -> Asia/Jakarta
+            dates = dates.dt.tz_convert('Asia/Jakarta').dt.tz_localize(None)
+        else:
+            # drop timezone saja (anggap sudah di tz bursa yg bener)
+            dates = dates.dt.tz_localize(None)
+
+    # ke ISO tanpa timezone
+    df[column] = dates.dt.strftime('%Y-%m-%dT%H:%M:%S')
+    return df
 
 # API Endpoints
 
@@ -163,11 +186,21 @@ async def calculate_stoch_rsi(request: HistoricalRequest):
         # Prepare response data
         if 'Date' not in data.columns and data.index is not None:
             data = data.reset_index()
-        
+
+        # Normalize to a single Date column for consistent frontend handling
+        if 'Date' not in data.columns:
+            if 'Datetime' in data.columns:
+                data = data.rename(columns={'Datetime': 'Date'})
+            else:
+                first_col = data.columns[0]
+                data = data.rename(columns={first_col: 'Date'})
+
         if 'Date' in data.columns:
-            dates = data['Date'].astype(str).tolist()
+            data = format_datetime_column(data, 'Date', ticker=request.ticker)
+            dates = data['Date'].tolist()
         else:
             dates = list(range(len(data)))
+
         
         # Filter out NaN values
         result_data = []
@@ -200,36 +233,61 @@ async def calculate_stoch_rsi(request: HistoricalRequest):
 
 @app.post("/api/historical")
 async def get_historical_data(request: HistoricalRequest):
-    """Get historical price data"""
     try:
+        # --- ADJUST END DATE UNTUK INTRADAY ---
+        intraday_intervals = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
+
+        start_str = request.start_date
+        end_str = request.end_date
+
+        if request.interval in intraday_intervals:
+            # yfinance: end itu exclusive, jadi tambahin 1 hari
+            try:
+                end_dt = datetime.strptime(request.end_date, "%Y-%m-%d") + timedelta(days=1)
+                end_str = end_dt.strftime("%Y-%m-%d")
+            except Exception:
+                end_str = request.end_date  # fallback kalau parsing error
+
+        print(f"[API] Historical data request: {request.ticker} from {start_str} to {end_str}, interval={request.interval}")
+
         data = download_fast(
             request.ticker,
-            request.start_date,
-            request.end_date,
-            interval=request.interval
+            start_str,
+            end_str,
+            interval=request.interval,
+            progress=False
         )
-        
+
+        print(f"[API] Received {len(data) if data is not None else 0} rows from yfinance")
+
+    
         if data is None or len(data) == 0:
+            print(f"[API] WARNING: No data returned for {request.ticker} with interval {request.interval}")
             raise HTTPException(status_code=404, detail="No data found")
         
-        # Convert to dict for JSON response
-        # Normalize columns: if MultiIndex (returned for some tickers), flatten to simple names
+        # ---- 1) Flatten MultiIndex kalau ada
         if isinstance(data.columns, pd.MultiIndex):
-            # prefer the first level (e.g., ('Close','^JKSE') -> 'Close')
             data.columns = [c[0] if isinstance(c, (list, tuple)) and len(c) > 0 else c for c in data.columns]
 
-        # Ensure Date is a column (reset index if necessary)
-        if 'Date' not in data.columns and data.index is not None:
+        # ---- 2) Pastikan index jadi kolom
+        if data.index is not None:
             data = data.reset_index()
 
-        # Convert datetime to string for JSON serialization
-        if 'Date' in data.columns:
-            data['Date'] = data['Date'].astype(str)
+        # ---- 3) Normalisasi nama kolom tanggal -> selalu 'Date'
+        if 'Date' not in data.columns:
+            if 'Datetime' in data.columns:
+                data = data.rename(columns={'Datetime': 'Date'})
+            else:
+                # fallback: jadikan kolom pertama sebagai Date
+                first_col = data.columns[0]
+                data = data.rename(columns={first_col: 'Date'})
 
-        # Keep a stable column order if common columns exist
+                # ---- 4) Konversi Date ke ISO-8601 string biar frontend gampang parse
+        data = format_datetime_column(data, 'Date', ticker=request.ticker)
+
+        # ---- 5) Susun ulang kolom
         preferred_cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
         existing = [c for c in preferred_cols if c in data.columns]
-        # Append any other columns after preferred ones
         other = [c for c in data.columns if c not in existing]
         data = data[existing + other]
 
@@ -314,7 +372,6 @@ async def get_ticker_list():
     idx_tickers = [
         {"symbol": "^JKSE", "name": "Jakarta Composite Index", "category": "Index"},
         {"symbol": "^JKLQ45", "name": "LQ45 Index", "category": "Index"},
-        
     ]
     
     idx_composite = pd.read_csv('idx_composite_list.csv')

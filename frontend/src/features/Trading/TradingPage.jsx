@@ -8,12 +8,23 @@ import { stockAPI as api } from '../../services/api';
 import './Trading.css';
 
 function TradingPage({ tickers, marketOpen }) {
-  const [currentTicker, setCurrentTicker] = useState('');
+  // Load saved ticker from localStorage
+  const [currentTicker, setCurrentTicker] = useState(() => {
+    return localStorage.getItem('selectedTicker') || '';
+  });
   const [quote, setQuote] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [period, setPeriod] = useState('1M');
+  const [interval, setInterval] = useState('1d');
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState(document.documentElement.getAttribute('data-theme') || 'dark');
+
+  // Persist ticker to localStorage whenever it changes
+  useEffect(() => {
+    if (currentTicker) {
+      localStorage.setItem('selectedTicker', currentTicker);
+    }
+  }, [currentTicker]);
 
   useEffect(() => {
     // Watch for theme changes
@@ -32,63 +43,113 @@ function TradingPage({ tickers, marketOpen }) {
 
   useEffect(() => {
     if (tickers && tickers.length > 0 && !currentTicker) {
-      const ihsg = tickers.find(t => t.symbol === '^JKSE');
-      setCurrentTicker(ihsg ? ihsg.symbol : tickers[0].symbol);
+      // Try to use saved ticker if it exists in the list
+      const savedTicker = localStorage.getItem('selectedTicker');
+      if (savedTicker && tickers.find(t => t.symbol === savedTicker)) {
+        setCurrentTicker(savedTicker);
+      } else {
+        // Fall back to ^JKSE or first ticker
+        const ihsg = tickers.find(t => t.symbol === '^JKSE');
+        setCurrentTicker(ihsg ? ihsg.symbol : tickers[0].symbol);
+      }
     }
-  }, [tickers]);
+  }, [tickers, currentTicker]);
 
-  const getDateRange = useCallback((selectedPeriod) => {
-    const endDate = new Date();
-    const startDate = new Date();
-    let interval = '1d';
+  // Auto-set interval based on period
+  // useEffect(() => {
+  //   if (period === '1D') {
+  //     setInterval('15m'); // Changed from 5m to 15m for more reliable data
+  //   } else if (period === '1W') {
+  //     setInterval('1d');
+  //   } else {
+  //     setInterval('1d');
+  //   }
+  // }, [period]);
+  useEffect(() => {
+      if (period === '1D') {
+        setInterval('1m');      // default intraday 1D
+      } else if (period === '1W') {
+        setInterval('5m');
+      } else {
+        setInterval('1d');
+      }
+    }, [period]);
 
-    switch(selectedPeriod) {
+  const getDateRange = useCallback((selectedPeriod, customInterval = null) => {
+    const now = new Date();
+
+    // yfinance: end itu EKSKLUSIF → pakai BESOK supaya hari ini ikut ke-fetch
+    const yfEnd = new Date(now);
+    yfEnd.setDate(yfEnd.getDate() + 1);
+
+    const startDate = new Date(now);
+    let intervalToUse = customInterval || '1d';
+
+    // Yahoo Finance intraday limits:
+    // 1m = 7 days, 2m/5m/15m/30m = 60 days, 60m/90m = 730 days
+    if (!customInterval) {
+      if (selectedPeriod === '1D') {
+        intervalToUse = '1m'; // default 1D pakai 1 menit
+      } else if (selectedPeriod === '1W') {
+        intervalToUse = '5m';
+      } else {
+        intervalToUse = '1d';
+      }
+    }
+
+    switch (selectedPeriod) {
       case '1D':
+        // ambil 5 hari ke belakang (safe untuk limit 1m=7d)
         startDate.setDate(startDate.getDate() - 5);
-        interval = '1d';
         break;
       case '1W':
-        startDate.setDate(startDate.getDate() - 7);
-        interval = '1d';
+        // ambil 10 hari ke belakang untuk 1W
+        startDate.setDate(startDate.getDate() - 10);
         break;
       case '1M':
-        startDate.setMonth(startDate.getMonth() - 1);
-        interval = '1d';
+        // 1M: tetap jaga di < 60 hari kalau pakai intraday
+        if (['1m', '2m', '5m', '15m', '30m'].includes(intervalToUse)) {
+          startDate.setDate(startDate.getDate() - 30);
+        } else {
+          startDate.setMonth(startDate.getMonth() - 1);
+        }
         break;
       case '3M':
         startDate.setMonth(startDate.getMonth() - 3);
-        interval = '1d';
+        intervalToUse = '1d';
         break;
       case '6M':
         startDate.setMonth(startDate.getMonth() - 6);
-        interval = '1d';
+        intervalToUse = '1d';
         break;
       case '1Y':
         startDate.setFullYear(startDate.getFullYear() - 1);
-        interval = '1d';
+        intervalToUse = '1d';
         break;
       case '5Y':
         startDate.setFullYear(startDate.getFullYear() - 5);
-        interval = '1wk';
+        intervalToUse = '1wk';
         break;
       case '10Y':
         startDate.setFullYear(startDate.getFullYear() - 10);
-        interval = '1mo';
+        intervalToUse = '1mo';
         break;
       case 'MAX':
         startDate.setFullYear(startDate.getFullYear() - 20);
-        interval = '1mo';
+        intervalToUse = '1mo';
         break;
       default:
         startDate.setMonth(startDate.getMonth() - 1);
+        intervalToUse = '1d';
     }
 
-    return { 
-      startDate: startDate.toISOString().split('T')[0], 
-      endDate: endDate.toISOString().split('T')[0],
-      interval 
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: yfEnd.toISOString().split('T')[0],   // <<< beda di sini: pakai BESOK
+      interval: intervalToUse,
     };
   }, []);
+
 
   const loadStockData = useCallback(async () => {
     if (!currentTicker) return;
@@ -107,17 +168,19 @@ function TradingPage({ tickers, marketOpen }) {
     
     setLoading(true);
     try {
-      console.log('Loading historical data for:', currentTicker, period);
-      const { startDate, endDate, interval } = getDateRange(period);
+      console.log('[TradingPage] Loading historical data:', { ticker: currentTicker, period, interval });
+      const { startDate, endDate } = getDateRange(period, interval);
+      console.log('[TradingPage] Date range:', { startDate, endDate, interval });
       const response = await api.getHistoricalData(currentTicker, startDate, endDate, interval);
+      console.log('[TradingPage] Received', response.data?.length || 0, 'data points');
       setHistoricalData(response.data || []);
     } catch (error) {
-      console.error('Error loading historical data:', error);
+      console.error('[TradingPage] Error loading historical data:', error);
       setHistoricalData([]);
     } finally {
       setLoading(false);
     }
-  }, [currentTicker, period, getDateRange]);
+  }, [currentTicker, period, interval, getDateRange]);
 
   useEffect(() => {
     loadStockData();
@@ -194,12 +257,13 @@ function TradingPage({ tickers, marketOpen }) {
                 historicalData={historicalData}
                 period={period}
                 onPeriodChange={setPeriod}
+                interval={interval}
+                onIntervalChange={setInterval}
                 theme={theme}
                 quote={quote}
                 ticker={currentTicker}
-                startDate={getDateRange(period).startDate}
-                endDate={getDateRange(period).endDate}
-                interval={getDateRange(period).interval}
+                startDate={getDateRange(period, interval).startDate}
+                endDate={getDateRange(period, interval).endDate}
               />
             </div>
           </div>
