@@ -4,12 +4,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
-PYTHON_BIN="${PYTHON:-python3}"
+VENV_DIR="$ROOT_DIR/venv"
+
+if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/python3" ]; then
+  echo "Using Python virtual environment..."
+  PYTHON_BIN="$VENV_DIR/bin/python3"
+else
+  PYTHON_BIN="${PYTHON:-python3}"
+fi
+
 BACKEND_PID=""
 FRONTEND_PID=""
 
 cleanup() {
-  echo "\nShutting down services..."
+  printf '\nShutting down services...\n'
   if [ -n "$FRONTEND_PID" ] && ps -p "$FRONTEND_PID" >/dev/null 2>&1; then
     kill "$FRONTEND_PID" >/dev/null 2>&1 || true
   fi
