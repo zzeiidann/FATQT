@@ -7,7 +7,8 @@ class StockAPI {
   }
 
   async getRealtimeQuote(ticker) {
-    const response = await fetch(`${this.baseURL}/api/realtime/${ticker}`);
+    const safeTicker = encodeURIComponent(ticker);
+    const response = await fetch(`${this.baseURL}/api/realtime/${safeTicker}`);
     if (!response.ok) throw new Error('Failed to fetch quote');
     return await response.json();
   }
@@ -23,7 +24,8 @@ class StockAPI {
   }
 
   async getAnalysis(ticker) {
-    const response = await fetch(`${this.baseURL}/api/analysis/${ticker}`);
+    const safeTicker = encodeURIComponent(ticker);
+    const response = await fetch(`${this.baseURL}/api/analysis/${safeTicker}`);
     if (!response.ok) throw new Error('Failed to fetch analysis');
     return await response.json();
   }
@@ -36,9 +38,9 @@ class StockAPI {
 
   connectWebSocket(ticker, onMessage) {
     if (this.ws) this.ws.close();
-    
     const wsURL = this.baseURL.replace('http', 'ws');
-    this.ws = new WebSocket(`${wsURL}/ws/realtime/${ticker}`);
+    const safeTicker = encodeURIComponent(ticker);
+    this.ws = new WebSocket(`${wsURL}/ws/realtime/${safeTicker}`);
     
     this.ws.onopen = () => console.log('WebSocket connected');
     this.ws.onmessage = (event) => onMessage(JSON.parse(event.data));

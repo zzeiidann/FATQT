@@ -1,0 +1,203 @@
+/* Hero Stats Card */
+.hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.hero-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.hero-symbol-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hero-symbol-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(244, 176, 0, 0.1);
+  border: 1px solid var(--accent-primary);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  box-shadow: 0 0 20px rgba(244, 176, 0, 0.2);
+}
+
+.hero-name {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.market-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.market-badge.open {
+  background: var(--accent-green-glow);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.market-badge.closed {
+  background: var(--accent-red-glow);
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+.market-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.market-badge.closed .market-badge-dot {
+  animation: none;
+}
+
+.hero-price-section {
+  margin-bottom: 32px;
+}
+
+.hero-price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.hero-price-value {
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text-primary) !important;
+  line-height: 1;
+}
+
+[data-theme="light"] .hero-price-value {
+  color: #090B10 !important;
+}
+
+[data-theme="dark"] .hero-price-value {
+  color: #F9FAFB !important;
+}
+
+.hero-change-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.hero-change-badge.positive {
+  background: var(--accent-green-glow);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.hero-change-badge.negative {
+  background: var(--accent-red-glow);
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+.change-icon {
+  font-size: 20px;
+}
+
+.change-amount {
+  font-size: 13px;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.hero-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.hero-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-value.positive {
+  color: var(--accent-green);
+}
+
+.stat-value.negative {
+  color: var(--accent-red);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .hero-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-card {
+    padding: 20px;
+  }
+  
+  .hero-price-value {
+    font-size: 40px;
+  }
+  
+  .hero-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}

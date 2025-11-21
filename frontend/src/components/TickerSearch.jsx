@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import '../styles/TickerSearch.css';
 
 const getLogoUrl = (symbol) => {
   const cleanSymbol = symbol.replace('.JK', '');

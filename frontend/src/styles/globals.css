@@ -1,0 +1,231 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px !important;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #0a0e1a;
+  font-size: 1rem;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+:root {
+  /* Dark Theme - Professional Trading Terminal */
+  --page-max-width: 78rem;
+  --page-wide-width: 86rem;
+  --page-padding-x: clamp(1rem, 2.5vw, 2.5rem);
+  --page-padding-y: clamp(1.25rem, 3vw, 2.75rem);
+  
+  /* Grey Palette - Main UI */
+  --grey-950: #050609;
+  --grey-900: #090B10;
+  --grey-800: #141922;
+  --grey-700: #1F2633;
+  --grey-600: #2B3545;
+  --grey-500: #4B5565;
+  --grey-300: #9CA3AF;
+  --grey-100: #E5E7EB;
+  --grey-50: #F9FAFB;
+  
+  /* Yellow Palette - Brand/Accent */
+  --yellow-900: #7A5A00;
+  --yellow-700: #B88600;
+  --yellow-600: #F4B000;
+  --yellow-500: #FFD54A;
+  --yellow-300: #FFE89A;
+  --yellow-100: #FFF7D6;
+  
+  /* Trading Status Colors */
+  --green-main: #22C55E;
+  --green-dark: #15803D;
+  --red-main: #EF4444;
+  --red-dark: #B91C1C;
+  --blue-info: #38BDF8;
+  
+  /* Semantic Tokens - Dark Mode */
+  --bg-primary: #090B10;
+  --bg-secondary: #141922;
+  --bg-tertiary: #1F2633;
+  --bg-card: #141922;
+  --bg-elevated: #1F2633;
+  --bg-hover: #2B3545;
+  
+  --border-subtle: #2B3545;
+  --border-medium: #2B3545;
+  --border-strong: #4B5565;
+  
+  --text-primary: #F9FAFB;
+  --text-secondary: #E5E7EB;
+  --text-tertiary: #9CA3AF;
+  --text-muted: #4B5565;
+  
+  --accent-primary: #F4B000;
+  --accent-primary-hover: #FFD54A;
+  --accent-primary-pressed: #B88600;
+  --accent-primary-bg: rgba(244, 176, 0, 0.1);
+  
+  --accent-green: #22C55E;
+  --accent-green-dark: #15803D;
+  --accent-green-glow: rgba(34, 197, 94, 0.15);
+  --accent-red: #EF4444;
+  --accent-red-dark: #B91C1C;
+  --accent-red-glow: rgba(239, 68, 68, 0.15);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -5px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 30px -10px rgba(0, 0, 0, 0.8), 0 10px 15px -5px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] {
+  /* Light Theme - Professional Trading */
+  --bg-primary: #F9FAFB;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F3F4F6;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-hover: #F3F4F6;
+  
+  --border-subtle: #E5E7EB;
+  --border-medium: #D1D5DB;
+  --border-strong: #9CA3AF;
+  
+  --text-primary: #090B10;
+  --text-secondary: #1F2633;
+  --text-tertiary: #4B5565;
+  --text-muted: #9CA3AF;
+  
+  --accent-primary: #F4B000;
+  --accent-primary-hover: #B88600;
+  --accent-primary-pressed: #7A5A00;
+  --accent-primary-bg: #FFF7D6;
+  
+  --accent-green: #22C55E;
+  --accent-green-dark: #15803D;
+  --accent-green-glow: rgba(34, 197, 94, 0.1);
+  --accent-red: #EF4444;
+  --accent-red-dark: #B91C1C;
+  --accent-red-glow: rgba(239, 68, 68, 0.1);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -5px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 30px -10px rgba(0, 0, 0, 0.15), 0 10px 15px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Main Content Layout */
+.main-content {
+  margin-left: 14rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  min-height: 100vh;
+  background: var(--bg-primary);
+  transition: margin-left 0.3s ease;
+  padding: var(--page-padding-y) var(--page-padding-x);
+}
+
+.app.sidebar-collapsed .main-content {
+  margin-left: 5rem;
+}
+
+.content-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.content-wrapper > * {
+  width: min(var(--page-wide-width), 100%);
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Dashboard Grid */
+.dashboard {
+  flex: 1;
+  padding: 1.5rem;
+  padding-left: 2.5rem;
+  display: grid;
+  grid-template-columns: 1fr 23.75rem;
+  gap: 1.5rem;
+  max-width: 120rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Card Styles */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+  
+  .side-col {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 1.25rem 1rem 2rem;
+  }
+  
+  .dashboard {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}

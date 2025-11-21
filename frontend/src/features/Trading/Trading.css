@@ -1,0 +1,101 @@
+/* Trading Page Layout */
+.trading-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+.trading-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+.trading-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: clamp(1.25rem, 2vw, 2.25rem);
+  width: 100%;
+}
+
+.trading-main {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2vw, 2rem);
+}
+
+.trading-side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 2vw, 2rem);
+}
+
+.positions-section {
+  margin-top: clamp(1.5rem, 3vw, 2.75rem);
+}
+
+.positions-section .positions-card {
+  width: 100%;
+}
+
+.trading-utilities {
+  margin-top: clamp(1.5rem, 3vw, 2.5rem);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Shared Card Styles */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+/* Chart Card */
+.chart-card {
+  background: var(--bg-card);
+}
+
+[data-theme="dark"] .chart-card {
+  background: var(--grey-900);
+}
+
+.chart-card-header {
+  margin-bottom: 1.25rem;
+}
+
+.section-label {
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.125rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .trading-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .trading-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trading-utilities {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .trading-container {
+    gap: 1.25rem;
+  }
+}

@@ -1,4 +1,5 @@
 import React from 'react';
+import '../styles/PositionsTable.css';
 
 const PositionsTable = ({ rows }) => {
   if (!rows.length) {
