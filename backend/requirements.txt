@@ -9,3 +9,5 @@ python-dotenv>=1.0.0
 pydantic>=2.0.0
 python-multipart>=0.0.6
 aiofiles>=23.0.0
+cloudscraper>=1.2.71
+pdfplumber>=0.10.0

@@ -14,12 +14,20 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 import pandas as pd
+import os
 
 from scrapper import RealTimeScraper, download_fast
 from analysis.seasonal import SeasonalAnalysis
 from analysis.patterns import PatternAnalysis
 from analysis.volatility import VolatilityAnalysis
 from analysis.intraday import IntradayAnalysis
+from analysis.idx_shareholder import (
+    get_idx_reports,
+    download_pdfs,
+    extract_from_files,
+    clear_cache,
+    PDF_CACHE_DIR
+)
 
 app = FastAPI(title="FATQT Stock Analysis API")
 
@@ -70,6 +78,17 @@ class AnalysisRequest(BaseModel):
     ticker: str
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+class IDXReportRequest(BaseModel):
+    year: int = 2024
+    periode: str = "tw1"  # tw1, tw2, tw3, tahunan
+    emiten: str = ""  # kode emiten (tanpa .JK)
+
+class PDFDownloadRequest(BaseModel):
+    urls: List[str]  # list of PDF URLs to download
+
+class PDFExtractRequest(BaseModel):
+    file_names: List[str]  # list of downloaded PDF filenames
 
 
 def format_datetime_column(df: pd.DataFrame, column: str = 'Date', ticker: str = '') -> pd.DataFrame:
@@ -387,6 +406,78 @@ async def get_ticker_list():
         "total": len(idx_tickers),
         "tickers": idx_tickers
     }
+
+
+# ============================================================
+# IDX PDF SHAREHOLDER ANALYSIS ENDPOINTS
+# ============================================================
+
+@app.get("/api/idx/emiten")
+async def get_idx_emiten_list():
+    """Get list of IDX emiten codes from idx_composite_list.csv"""
+    try:
+        csv_path = os.path.join(os.path.dirname(__file__), 'idx_composite_list.csv')
+        df = pd.read_csv(csv_path)
+        
+        # Extract emiten code (remove .JK suffix)
+        emiten_list = []
+        for _, row in df.iterrows():
+            symbol = row['symbol']
+            code = symbol.replace('.JK', '') if '.JK' in symbol else symbol
+            if not code.startswith('^'):  # Skip index symbols
+                emiten_list.append({
+                    "code": code,
+                    "name": row['name'],
+                    "category": row.get('category', 'Stock')
+                })
+        
+        return {
+            "total": len(emiten_list),
+            "emiten": emiten_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/idx/reports")
+async def search_idx_reports(request: IDXReportRequest):
+    """Search IDX financial reports by year, periode, and emiten"""
+    try:
+        result = get_idx_reports(request.year, request.periode, request.emiten)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/idx/download")
+async def download_idx_pdfs(request: PDFDownloadRequest):
+    """Download selected PDFs from IDX"""
+    try:
+        result = download_pdfs(request.urls)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/idx/extract")
+async def extract_shareholders_from_pdfs(request: PDFExtractRequest):
+    """Extract shareholder data from downloaded PDFs"""
+    try:
+        result = extract_from_files(request.file_names)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/idx/cache")
+async def clear_pdf_cache_endpoint():
+    """Clear all downloaded PDF cache"""
+    try:
+        result = clear_cache()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def is_idx_market_open():
     """Check if IDX market is currently open (WIB/UTC+7)"""

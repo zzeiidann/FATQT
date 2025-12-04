@@ -36,6 +36,51 @@ class StockAPI {
     return await response.json();
   }
 
+  // IDX PDF Analysis endpoints
+  async getIDXEmiten() {
+    const response = await fetch(`${this.baseURL}/api/idx/emiten`);
+    if (!response.ok) throw new Error('Failed to fetch emiten list');
+    return await response.json();
+  }
+
+  async searchIDXReports(year, periode, emiten = '') {
+    const response = await fetch(`${this.baseURL}/api/idx/reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, periode, emiten }),
+    });
+    if (!response.ok) throw new Error('Failed to search IDX reports');
+    return await response.json();
+  }
+
+  async downloadIDXPDFs(urls) {
+    const response = await fetch(`${this.baseURL}/api/idx/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls }),
+    });
+    if (!response.ok) throw new Error('Failed to download PDFs');
+    return await response.json();
+  }
+
+  async extractShareholders(fileNames) {
+    const response = await fetch(`${this.baseURL}/api/idx/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_names: fileNames }),
+    });
+    if (!response.ok) throw new Error('Failed to extract shareholders');
+    return await response.json();
+  }
+
+  async clearPDFCache() {
+    const response = await fetch(`${this.baseURL}/api/idx/cache`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to clear cache');
+    return await response.json();
+  }
+
   connectWebSocket(ticker, onMessage) {
     if (this.ws) this.ws.close();
     const wsURL = this.baseURL.replace('http', 'ws');
