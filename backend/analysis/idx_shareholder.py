@@ -159,11 +159,21 @@ def extract_shareholders_from_pdf(pdf_path: str) -> List[Dict]:
             if is_sales_page:
                 continue
             
+            # Skip pages about subsidiary ownership (entitas anak) - these have "ownership" but are not shareholder tables
+            is_subsidiary_page = bool(re.search(r'entitas\s*anak|subsidiary|subsidiaries|kepemilikan\s*atas\s+[A-Z]{2,}', text, re.IGNORECASE))
+            
             # PRIMARY: Detect "Modal Saham" section header (numbered like "16. Modal Saham" or "22. Modal Saham")
             # But NOT continuation pages "(Lanjutan)" / "(Continued)" / "(lanjutan)"
             has_modal_saham_section = bool(re.search(r'\d+\.\s*Modal\s*Saham', text, re.IGNORECASE))
-            # Continuation must be specifically "Modal Saham (Lanjutan)" or "Modal Saham (lanjutan)" or "(Continued)"
-            is_modal_saham_continuation = bool(re.search(r'\d+\.\s*Modal\s*Saham\s*\((?:Lanjutan|lanjutan|Continued|continued)\)', text, re.IGNORECASE))
+            
+            # Continuation detection - handles multiple formats:
+            # 1. "22. Modal Saham (Lanjutan)" - simple format
+            # 2. "16. MODAL SAHAM 16. SHARE CAPITAL (Continued)" - bilingual format
+            # 3. "22. Modal Saham (lanjutan)" - lowercase
+            is_modal_saham_continuation = bool(re.search(
+                r'\d+\.\s*Modal\s*Saham\s*(?:\d+\.\s*SHARE\s*CAPITAL\s*)?\((?:Lanjutan|lanjutan|Continued|continued)\)', 
+                text, re.IGNORECASE
+            ))
             
             # Skip only if it's SPECIFICALLY a Modal Saham continuation page
             if is_modal_saham_continuation:
@@ -186,11 +196,11 @@ def extract_shareholders_from_pdf(pdf_path: str) -> List[Dict]:
             # 1. Modal Saham section header - highest priority (both DEWA and INET style)
             if has_modal_saham_section and has_pemegang_saham:
                 shareholder_pages.append((page_num, 'modal_saham'))
-            # 2. Susunan Pemegang Saham with shareholder data
-            elif has_susunan_in_page and has_shareholder_data:
+            # 2. Susunan Pemegang Saham with shareholder data (but not subsidiary pages)
+            elif has_susunan_in_page and has_shareholder_data and not is_subsidiary_page:
                 shareholder_pages.append((page_num, 'susunan'))
-            # 3. Has shareholder table data with percentage
-            elif has_shareholder_data and has_pemegang_saham and has_persentase:
+            # 3. Has shareholder table data with percentage (but not subsidiary pages)
+            elif has_shareholder_data and has_pemegang_saham and has_persentase and not is_subsidiary_page:
                 shareholder_pages.append((page_num, 'susunan'))
         
         if not shareholder_pages:
@@ -560,9 +570,28 @@ def clean_shareholder_name_v2(name: str) -> str:
     name = re.sub(r'\s*\([^)]*below[^)]*\)\s*$', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s*\([^)]*bawah[^)]*\)\s*$', '', name, flags=re.IGNORECASE)
     
+    # Remove role/position suffixes like "(Direktur Utama)" or "(President Director)"
+    name = re.sub(r'\s*\((?:Direktur|President|Director|Komisaris|Commissioner)[^)]*\)?\s*$', '', name, flags=re.IGNORECASE)
+    name = re.sub(r'\s*\((?:Direktur|President|Director|Komisaris|Commissioner)[^)]*$', '', name, flags=re.IGNORECASE)
+    
     # Fix "di bawah 5%" -> "Masyarakat"
     if re.search(r'^di\s*bawah\s*5', name, re.IGNORECASE):
         return "Masyarakat"
+    
+    # Handle PDF extraction artifacts where person names get inserted into company names
+    # e.g., "PT Abadi Kreasi Unggul Muhammad Arif Nusantara" should be "PT Abadi Kreasi Unggul Nusantara"
+    # Pattern: PT <company words> <person name> <more company words>
+    # Known person name patterns to remove from middle of company names
+    person_patterns = [
+        r'\s+Muhammad\s+Arif\s+',
+        r'\s+Haryanto\s+Tjiptodihardjo\s+',
+    ]
+    for pattern in person_patterns:
+        if re.search(pattern, name, re.IGNORECASE):
+            # Only remove if it looks like it's in the middle of a PT company name
+            if name.upper().startswith('PT ') and re.search(r'Nusantara|Perkasa|Investama', name, re.IGNORECASE):
+                name = re.sub(pattern, ' ', name, flags=re.IGNORECASE)
+                name = ' '.join(name.split())  # Clean up double spaces
     
     # Fix duplicate bilingual names - handles:
     # "Goldwave Capital Limited Goldwave Capital Limited" -> "Goldwave Capital Limited"
